@@ -1,9 +1,13 @@
 package model;
 
+import java.util.Iterator;
 import java.util.HashMap;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.io.File;
 import java.io.FileNotFoundException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.Scanner;
 
 public class TextGenerator {
@@ -11,83 +15,120 @@ public class TextGenerator {
 	
 	/**Writes a block of random text following an initial string. Meant to be used with the results of a call to the "digest" method.
 	 * 
+	 * @throws IllegalArgumentException - if "length" is less than the order of "map"
+	 * 
 	 * @param s - The initial "seed" text to be extended
 	 * @param map - A HashMap which will be used to generate words
 	 * @param length - The number of words to be generated
 	 * 
 	 * @return A string of (length) words in the style of some previously processed body of text
 	 */
+//	
+//	public String write(String s, HashMap<String, ArrayList<String>> map, int length) throws IllegalArgumentException {
+//		String ret = "";
+//
+////		TO IMPLEMENT note: for values not found in map, use map.keys() and grab a key at random.
+////		This SHOULD only occur once, and only if s is shorter than map's order  
+////		How to ensure proper capitalization?
+////		What to do if length is less than the map's order?
+//		
+//		int i = 0;
+//		
+//		ArrayList<String> keys = new ArrayList<String>();
+//		Iterator<String> keyGet = map.keySet().iterator();
+//		while (keyGet.hasNext()) {
+//			keys.add(keyGet.next());
+//		}
+//		
+//		int ord = 0;
+//		Collections.shuffle(keys);
+//		String ordTest = keys.get(0);
+//		
+//		Scanner sc = new Scanner(ordTest);
+//		while (sc.hasNext()) {
+//			ord++;
+//			sc.next();
+//		}
+//		sc.close();
+//		
+//		if (ord > length) {
+//			throw new IllegalArgumentException();
+//		}
+//		
+//		ret += ordTest;
+//		i += ord;
+//		
+//		String lastThree = "" + ordTest;
+////		lastThree = lastThree.substring(lastThree.indexOf(" "), lastThree.length()); lop off first word
+//		
+//		while (i < length) {
+//			ret += " " + map.get(lastThree);
+//			
+//		}
+//		
+//		return ret;
+//	}
 	
-	public String write(String s, HashMap<String, ArrayList<String>> map, int length) {
-		String ret = "";
-
-//		TO IMPLEMENT note: for values not found in map, use map.values() and grab a key at random.
-//		This SHOULD only occur once, and only if s is shorter than map's order  
-//		How to ensure proper capitalization?
-		
-		return ret;
-	}
 	
-	/**Takes a string and generates a HashMap linking each set of (order) words to an ArrayList of words which appear immediately following that set of words in the string.
+	/**Generates a HashMap representing the probability of some character in a text following each unique substring of a given length.
 	 * 
-	 * @param text - The string to be processed.
-	 * @param order - The number of words in each set. Must be greater than 0 and less than the number of words in text. SHOULD be a single-digit number
-	 * 
-	 * @return A HashMap of strings and ArrayList<String>s
+	 * @param text - The text from which to generate a transition mapping
+	 * @param order - The number of characters in each key. Higher order will result in a more "faithful" mapping
+	 * @return A pairing of each unique substring of length (order) to an ArrayList of characters immediately following that substring.
 	 */
-	public HashMap<String, ArrayList<String>> digest(String text, int order) {
+	
+	public HashMap<String, ArrayList<Character>> digest(String text, int order) {
 		
-		HashMap<String, ArrayList<String>> ret = new HashMap<String, ArrayList<String>>();
-		ArrayList<String> textList = new ArrayList<String>();
+		HashMap<String, ArrayList<Character>> matrix = new HashMap<String, ArrayList<Character>>();
+		//for each unique substring of length (order), store an ArrayList of characters immediately following it
+		//this feels space inefficient, but not sure how else to do it without sacrificing time efficiency
 		
-		Scanner sc = new Scanner(text);
-		while (sc.hasNext()) {
-			textList.add(sc.next());
-		}
-		sc.close();
+		String working = text + "";
+		working.trim();
 		
-		if (order <= 0 || order >= textList.size()) {
+		if (order <= 0 || order >= working.length()) {
 			throw new IllegalArgumentException();
 		}
+		//throw exception if order is < 1 (no key) or >= length of text (no next char to map)
 		
-		for (int i = 0; i < textList.size() - order; i++) {
-			String s = "";
-			for (int j = 0; j < order; j++) {
-				s = s + textList.get(i+j) + " ";
-			}
+		while (working.length() > order) {
+			String str = working.substring(0, order);
+			Character ch = working.charAt(order);
 			
-			if (ret.containsKey(s)) {
-				ret.get(s).add(textList.get(i+order));
+			if (!matrix.containsKey(str)) {
+				ArrayList<Character> map = new ArrayList<Character>();
+				map.add(ch);
+				matrix.put(str, map);
 			}
+			//if str isn't already a key, add it
 			else {
-				ArrayList<String> al = new ArrayList<String>();
-				al.add(textList.get(i+order));
-				ret.put(s, al);
+				matrix.get(str).add(ch);
 			}
+			//if str is already a key, add ch to its value
+
+			working = working.substring(1, working.length());
+			//cut the first char off of working string to move the loop forward
 		}
 		
-		return ret;
+		return matrix;
 	}
 	
-	/**Takes a text file and generates a HashMap linking each set of (order) words contained in the file to an ArrayList of words which appear immediately following that set of words.
+	/**Generates a HashMap representing the probability of some character in a file following each unique substring of a given length.
 	 * 
-	 * @param filename - The file containing the text to be processed. Must be in .txt format
-	 * @param order - The number of words in each set. Larger numbers will result in fewer but more "sensible" mappings
-	 * 
-	 * @return A HashMap of strings and ArrayList<String>s
+	 * @param filename - The file to be processed
+	 * @param order - The number of characters in each key
+	 * @return A pairing of each unique substring of length (order) to an ArrayList of characters immediately following that substring.
 	 */
-	public HashMap<String, ArrayList<String>> digestFile(String filename, int order) throws FileNotFoundException {
-		HashMap<String, ArrayList<String>> ret = new HashMap<String, ArrayList<String>>();
-		
-		File f = new File(filename);
-		Scanner sc = new Scanner(f);
-		String s = "";
-		while (sc.hasNext()) {
-			s = s + sc.next() + " ";
+	public HashMap<String, ArrayList<Character>> digestFile(String filename, int order) {
+
+		String text = "";
+		try {
+			text = new String(Files.readAllBytes(Paths.get(filename)));
 		}
-		sc.close();
-		ret = digest(s, order);
+		catch (Exception e) {
+			System.out.println("ERROR: Invalid file path");
+		}
 		
-		return ret;
+		return digest(text, order);
 	}
 }
